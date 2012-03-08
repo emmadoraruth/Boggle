@@ -1,0 +1,46 @@
+DESCRIPTION:
+The program implements a networked Boggle game. When a user logs into the server, he is prompted to choose a username, and then is presented with a listing of all games waiting to start, including the size of each game board, the current number of players, and the remaining time until it begins. The user can either select to join an existing game, or create a new game either of size 4X4 or 5X5. If the user makes a new game, he or she also chooses when the game will start. When a game starts all users are sent the board from the server, and the program displays the board and runs an interface to collect entered words. After three minutes the game ends and each client sends its word list back to the server. When the server receives the last set of words for the game, it checks the words against each other, the board, and the dictionary, as well as for length. It then sends the results of the entire game back to the clients. Each user is presented with a breakdown of his/her word list (which were counted and which were not), all the players' scores in descending order, and a declaration of the winner(s) and loser(s). The client then loops back to the listing of available games, at which point he/she also has the option to quit out.
+
+COMPILNG:
+To compile type make.
+Compiling uses the -lncurses option to use the ncurses library.
+
+RUNNING:
+To run the server type "./server".
+To run the client type "./client ip" with "ip" being the ip address of the server (the loopback address if the client and server are run on the same computer). Port forwarding was not considered, so the game will only work within a local network.
+
+FEATURES:
+-Users may play on either 5X5 or 4X4 boards.
+-Words are checked against a 173,528-word dictionary.
+-Results distinguish overlap words from rejected words (words that are not on the board, too short, or not actually words - AKA, not in the dictionary) when displaying results.
+-Allows each client to pick a username.
+-When clients begin a new game, they choose how long until the game begins down to the number of seconds (it is expected that hours will almost always be zero).
+-Can run up to 8 games at once, each with up to 10 players. (This can be easily modified to accomodate more games or players; as it seemed unlikely that this would be necessary for our purposes, we chose to keep the numbers relatively small to save memory and time.)
+-Boards are randomly generated while conforming to the letter distributions of true Boggle.
+-As in true Boggle, 'qu' appears on one cube but counts as two letters in word length.
+-Server does not need to be force-quit; typing 'q' or 'Q' in the server terminal at any time closes the server, all the subservers, all the clients the next time they try to communicate with the server, and all the related sockets.
+-User has the option to quit before starting or joining each new game by typing 'q' or 'Q'.
+-Before selecting a game option, the user may refresh as many times as he/she likes to get the most up-to-date games information by typing 'r' or 'R'.
+-After users enter words during a game, they are displayed in columns beneath the board for convenience; users need not worry about capitalization or duplicate words as this is taken care of when the words are placed into an array to send to the server.
+
+BUGS:
+If the user enters characters when not prompted to do so or enters too many characters when prompted, this can result in a Seg Fault, Bus Error, or erroneous selection. We attempted to remedy this using fpurge, but fpurge is unreliable and cannot effectively be used on stdin. This problem should not occur if the user follows directions.
+Killing clients/servers may cause processes to be left running. They will interfere with any subsequent running of the games. Use lsof -i to find these processes.
+
+FILES:
+board.c - Functions for dealing with a board of cubes (such as to check whether a word is on a board and long enough to be counted).
+board.h - Header file for board.c.
+board4.c - Function to initialize a 4x4 board (including randomly determining the cube in each position and the face on each cube from the actual Boggle cubes of a 4x4 board).
+board5.c - Function to initialize a 5x5 board,(including randomly determining the cube in each position and the face on each cube from the actual Boggle cubes of a 5x5 board).
+client.c - Main method run by users and user-specific functions.
+cube.c - Functions to initialize cube and retrieve and set the contents of the struct.
+cube.h - Header file for cube.c, including declaration of struct cube, the basic unit for the Boggle board, which contains: the character on the cube's face and an integer used for marking the cube as checked or unchecked while searching the board for a word.
+dicFile.txt - A text file containing an alphabetized list of 173,528 words, one per line.
+game.c - Functions for creating an ncurses interface window for playing the game to ensure that the board remains visible in the terminal; entered words appear in columns below it.
+game.h - Header file for game.c.
+makefile - Compiles entire project.
+message.h - Declaration of the struct message to be passed between server, clients, and their respective subservers.
+search.c - Functions for putting the dictionary into an array and then searching it for a word.
+search.h - Header file for search.c.
+server.c - Main method to control all games and users and related functions (such as for comparing clients' word lists against each other), containing array of subservers for sending messages to specific, unique clients.
+

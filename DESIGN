@@ -1,0 +1,81 @@
+Gabriel Hope, Lee Kuhn, Emma Ziegellaub Eichler
+
+DESIGN DOCUMENT
+
+DESCRIPTION: 
+
+We have implemented a networked Boggle game, which allows multiple players to compete between computers. It displays a randomized 4X4 or 5X5 matrix of letters (conforming to the distributions in true Boggle), and allows players to type in words that they find, eliminating duplicates and uncapitalizing as it stores the words. After the timer is up, the program checks players' words against each other, verifies that words entered exist on the current board,  checks them against a dictionary, and checks them for minimum length. It keeps score, and send the results to each player, along with a breakdown of that players' words (whether they were counted, discounted because they were illegal, or discounted because another player had them). Up to eight games, with one to ten players each, may be running simultaneously. This is easily changed to accommodate more games or players; eight and ten respectively were more than sufficient for our purposes.
+
+INTERFACE:
+
+When users connect to the game server, they will enter a username that will be used for identifying results. Users will then be presented with a list of existing games, their board sizes and current number of players, and the time remaining until they begin. Games will be set to start at a specific time, and players may join a game until it starts or is full. Users may refresh as many times as they wish to receive the most up-to-date games information before selecting an existing game or choosing to start a new one (if there are remaining unused games). If the latter is chosen, the user will be prompted to enter the amount of time to wait before beginning the game in hours, minutes, and seconds. When the time has elapsed, a board will appear. We have implemented a text-based interface in the terminal. For example, the display might appear:
+
+-----------------                      ---------------------
+| a | b | c | d |                      | a | b | c | d | e |
+-----------------                      ---------------------
+| e | f | g | h |                      | f | g | h | i | j |
+-----------------          or          ---------------------
+| i | j | k | l |                      | k | l | m | n | o |
+-----------------                      ---------------------
+| m | n | o | p |                      | p |q u| r | s | t |
+-----------------                      ---------------------
+                                       | u | v | w | x | y |
+                                       ---------------------
+
+There will be prompt for users to enter words, which will appear in columns below the board so as not to drive it out of view. After three minutes, the game will finish, the board will disappear, and each player will be shown his/her lists of approved, rejected, and overlap words, everyone's scores, the winners and losers and given the option to play again or quit.
+
+TECHNICAL DESIGN:
+
+The design consists of a number of distinct parts. All parts were worked on by all members of the group. Integral to the functionality and design of this project are the following facilities focused on in class: working with both temporary and permanent files, processes and forking, signals, unnamed pipes, and networking. Their use and implementation is described in greater detail below:
+
+a) A server that tracks who is logged in, what game they are in, and what games are running. It initiates games, directs information to and between all users, and checks and sorts all words at the end of each game. It includes a set of functions to compile and process the information from all of the players. At the end of the game this checks the players' lists, removing any words found by two or more players. It then tallies scores and determines a winner. The server is implemented with a single udp socket, and pipes to subservers, each of which is connected by a tcp socket to a specific client. All messages from clients are sent to the main server (over the udp socket), which then redirect them to the appropriate subserver after processing. Some features of the server are:
+
+	1) An array of all boards in use (pointers to two-dimensional arrays of cube pointers).
+
+	2) An two-dimsional array of messages representing the clients in each game.
+
+	3) A two-dimsional array of integers containing the number of players, board size, and start time (on the server's clock) for each game.
+
+	4) A function to compare the word lists of all players in the game. The algorithm used works as follows:
+	for each client, search for each unchecked word in his/her list in the lists of all remaining clients.
+	As you go, copy overlap words to the overlap lists and mark them with a '~' so they will not be checked again.
+
+	5) A function to organize players in descending order of their scores (from winner to loser) utilizing a selection sort algorithm.
+
+	6) Calls to functions to check words not eliminated by overlap for presence on the board and in the dictionary and for length (described below).
+
+	7) Entering 'q' or 'Q' in the server window quits the server (as described more fully in the struct message section below).
+
+b) An array of subservers each designated for sending messages to an individual client. Utilizing sleep, a subserver is responsible for when to send down a game to its client.
+
+c) A message struct for communicating between the server, subservers, and clients. It defines six kinds of messages: CONNECT, for when a client wants to connect to the server; REQUEST_INFO, for when a client needs information on available games; REQUEST_GAME, for when a client wants to join an existing game; REQUEST_NEW_GAME, for when a clients wants to start a new game; LIST_UP, for when a game is over and a client needs to send up its word list for checking; QUIT, for when a client wants to exist rather than begin a new game; and CLOSE_SERVER, for if one is done running the program, to quit the server, quit all clients when they next try to communicate with the server, and close all subservers and sockets.
+
+d) A cube struct, containing the character on the face of that cube and an integer for marking the cube as used when checking the board for a word. Pointers to cubes are stored in 4X4 or 5X5 two-dimensional arrays representing boards. If the letter is 'q', the following 'u' is not contained in the struct, but simply printed on the board and accounted for when searching the board.
+
+e) A set of board- and word-specific functions for generating boards and checking word lists:
+
+	1) Initializer functions, specific to board size, to create a randomized board of cubes.
+	These utilize alphabet strings as long as the number of cubes on the board, from which letters are randomly removed to determine the placement of cubes.
+	Each letter is defined as string representing the possible faces for that cube, from which a letter is randomly selected to be displayed that game.
+
+	2) A search function to check a word against a dictionary file utilizing an efficient binary search algorithm of an array.
+
+	3) A way to collect a users entered words, probably using an fgets 
+	   like function. This will use the ncurses library to display the
+	   board and a list of the words a user has entered.
+	
+	3) A function to check the length of a word, simply comparing strlen to the length of a side of the board, minus one.
+
+	4) A function to check if a word is on the board, utilizing a fast recursive algorithm and a helper function.
+	For each occurrence of the first letter of the word, it branches until either the word is found or all possibilities are exhausted.
+	It also employs a behead function which returns a string without its first letter (or, if the first letter is 'q', without the first two letters).
+
+	5) A function to convert a board into a two-dimensional character array simply containing the faces on each of the cubes.
+
+f) An ncurses interface that allows text to be entered in specific locations in the terminal so the board can be displayed with the words entered in columns beneath it, a unique temporary file for each client, ensured to different by including the client ID number in the name, to store words during the game, and functions for collecting entered words into an array to send to the server. Words are run through the following functions before being entered into the array:
+
+	1) A function to check whether a word has already been entered so duplicates are not sent.
+
+	2) An uncapitalize function, which converts all uppercase letters in a word to lowercase and leaves the lowercase letters (or erroneous symbols) untouched.
+
+g) A client main that prompts the user for input, sends messages to the server, and processes and displays information received from the subserver, including determining the winner(s) and loser(s). A while loop continues to prompt the user for input if nonsense is entered. When prompted to selected a new game, entering 'q' or 'Q' will invoke the quit message, as described above, and entering 'r' or 'R' retrieves the latest game information from the server.
