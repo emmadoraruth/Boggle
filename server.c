@@ -210,7 +210,7 @@ int main(){
 	    for(x = 0; x < 2; x++)
 	      m -> games[x][y] = games_list[x][y];
 	    k = 0;
-	    curr_time = (int)NULL;
+	    curr_time = NULL;
 	    curr_time = time(NULL);
 	    //Find out how long until the game starts
 	    tm = NULL;
